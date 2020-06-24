@@ -1,6 +1,5 @@
 #include <cstdio>
 #include <algorithm>
-#include <assert.h>
 
 template <typename T>
 struct vector
@@ -67,17 +66,13 @@ private:
     void new_buffer(std::size_t new_capacity);
 
 private:
-    T* data_;
-    size_t size_;
-    size_t capacity_;
+    T* data_ = nullptr;
+    size_t size_ = 0;
+    size_t capacity_ = 0;
 };
 
 template<typename T>
-vector<T>::vector() {
-    size_ = 0;
-    capacity_ = 0;
-    data_ = nullptr;
-}
+vector<T>::vector() = default;
 
 template<typename T>
 vector<T>::vector(vector const &other) : vector() {
@@ -85,8 +80,18 @@ vector<T>::vector(vector const &other) : vector() {
     if (other.size_ > 0 ) {
         new_data = static_cast<T*>(operator new(other.size_ * sizeof(T)));
     }
-    for (size_t i = 0; i < other.size_; i++) {
-        new(new_data + i) T(other.data_[i]);
+    size_t i;
+    try {
+        for (i = 0; i < other.size_; i++) {
+            new(new_data + i) T(other.data_[i]);
+        }
+    } catch (...) {
+        while (i != 0) {
+            new_data[i - 1].~T();
+            i--;
+        }
+        operator delete(new_data);
+        throw;
     }
     data_ = new_data;
     size_ = other.size_;
@@ -102,21 +107,19 @@ vector<T> &vector<T>::operator=(vector const &other) {
 
 template<typename T>
 vector<T>::~vector() {
-    for (size_t i = 0; i < size_; i++) {
-        data_[i].~T();
+    for (size_t i = 1; i <= size_; i++) {
+        data_[size_ - i].~T();
     }
     operator delete(data_);
 }
 
 template<typename T>
 T &vector<T>::operator[](size_t i) {
-    assert(i < size_);
     return data_[i];
 }
 
 template<typename T>
 T const &vector<T>::operator[](size_t i) const {
-    assert(i < size_);
     return data_[i];
 }
 
@@ -167,7 +170,6 @@ void vector<T>::push_back(const T &value) {
 
 template<typename T>
 void vector<T>::pop_back() {
-    assert(size_ != 0);
     data_[size_ - 1].~T();
     size_--;
 }
@@ -192,8 +194,8 @@ void vector<T>::reserve(size_t len) {
                 new(new_data + i) T(data_[i]);
             }
         } catch (...) {
-            for (size_t j = 0; j < i; j++) {
-                new_data[j].~T();
+            for (size_t j = 1; j <= i; j++) {
+                new_data[i - j].~T();
             }
             throw;
         }
@@ -213,8 +215,8 @@ void vector<T>::shrink_to_fit() {
         for (size_t i = 0; i < size_; i++) {
             new(new_data + i) T(data_[i]);
         }
-        for (size_t i = 0; i < size_; i++) {
-            data_[i].~T();
+        for (size_t i = 1; i <= size_; i++) {
+            data_[size_ - i].~T();
         }
         operator delete(data_);
         data_ = new_data;
@@ -224,8 +226,8 @@ void vector<T>::shrink_to_fit() {
 
 template<typename T>
 void vector<T>::clear() {
-    for (size_t i = 0; i < size_; i++) {
-        data_[i].~T();
+    for (size_t i = 1; i <= size_; i++) {
+        data_[size_ - i].~T();
     }
     size_ = 0;
 }
@@ -239,8 +241,8 @@ void vector<T>::swap(vector & other) {
 
 template<typename T>
 typename vector<T>::iterator vector<T>::insert(vector::const_iterator pos, const T &val) {
-    size_t id = pos - data_;
-    size_t new_capacity = capacity_;
+    ptrdiff_t id = pos - data_;
+    ptrdiff_t new_capacity = capacity_;
     if (capacity_ == 0) {
         new_capacity = 1;
     } else if (capacity_ == size_) {
@@ -269,14 +271,14 @@ typename vector<T>::iterator vector<T>::erase(vector::const_iterator pos) {
 
 template<typename T>
 typename vector<T>::iterator vector<T>::erase(vector::const_iterator first, vector::const_iterator last) {
-    size_t from = first - data_;
-    size_t to = last - data_;
-    size_t delta = to - from;
-    for (size_t i = from; i < size_ - delta; i++) {
+    ptrdiff_t from = first - data_;
+    ptrdiff_t to = last - data_;
+    ptrdiff_t delta = to - from;
+    for (ptrdiff_t i = from; i < size_ - delta; i++) {
         std::swap(data_[i], data_[i + delta]);
     }
-    for (size_t i = size_ - delta; i < size_; i++) {
-        data_[i].~T();
+    for (ptrdiff_t i = 1; i <= delta; i++) {
+        data_[size_ - i].~T();
     }
     size_ -= delta;
     return data_ + to;
