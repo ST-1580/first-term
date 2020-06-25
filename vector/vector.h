@@ -86,9 +86,8 @@ vector<T>::vector(vector const &other) : vector() {
             new(new_data + i) T(other.data_[i]);
         }
     } catch (...) {
-        while (i != 0) {
-            new_data[i - 1].~T();
-            i--;
+        for (size_t j = 1; j <= i; j++) {
+            new_data[i - j].~T();
         }
         operator delete(new_data);
         throw;
@@ -187,21 +186,7 @@ size_t vector<T>::capacity() const {
 template<typename T>
 void vector<T>::reserve(size_t len) {
     if (len > capacity_) {
-        T* new_data = static_cast<T*>(operator new(len * sizeof(T)));
-        size_t i;
-        try {
-            for (i = 0; i < size_; i++) {
-                new(new_data + i) T(data_[i]);
-            }
-        } catch (...) {
-            for (size_t j = 1; j <= i; j++) {
-                new_data[i - j].~T();
-            }
-            throw;
-        }
-        this->~vector();
-        data_ = new_data;
-        capacity_ = len;
+        new_buffer(len);
     }
 }
 
@@ -260,13 +245,7 @@ typename vector<T>::iterator vector<T>::insert(vector::const_iterator pos, const
 
 template<typename T>
 typename vector<T>::iterator vector<T>::erase(vector::const_iterator pos) {
-    iterator curr = (pos - begin()) + begin();
-    while (curr + 1 != end()) {
-        std::swap(*(curr), *(curr + 1));
-        curr++;
-    }
-    pop_back();
-    return (pos - begin()) + begin();
+    return erase(pos, pos + 1);
 }
 
 template<typename T>
@@ -303,9 +282,8 @@ void vector<T>::new_buffer(std::size_t new_capacity) {
         }
     }
     catch (...) {
-        while (i != 0) {
-            new_data[i - 1].~T();
-            i--;
+        for (size_t j = 1; j <= i; j++) {
+            new_data[i - j].~T();
         }
         operator delete(new_data);
         throw;
