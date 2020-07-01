@@ -1,26 +1,28 @@
-section         .text
-
+ 
                 global          _start
 
 ; main
 ;    r11 -- address of multiplier #1 (long number)
 ;    r12 -- address of multiplier #2 (long number)
-;    r13 -- address for intermediate calculations (long number)
+;    r13 -- result (long number)
+;    rdi -- addres for intermediate calculations
 
 _start:
-                sub             rsp, 5 * 256 * 8    
-                mov             rcx, 256 
-                lea             rdi, [rsp + 256 * 8] 
-                call            read_long 
+                sub             rsp, 6 * 128 * 8 
+                mov             rcx, 128
                 mov             rdi, rsp
                 call            read_long 
-                lea             r11, [rsp + 1 * 256 * 8] 
-                lea             r12, [rsp + 2 * 256 * 8]
-                lea             r13, [rsp + 4 * 256 * 8]
+                lea             rdi, [rsp + 128 * 8] 
+                call            read_long 
+                lea             r11, [rsp]
+                lea             r12, [rsp + 1 * 128 * 8] 
+                lea             r13, [rsp + 2 * 128 * 8]
+                lea             rdi, [rsp + 4 * 128 * 8]
 
                 call            mul_long_long
 
-                mov             rdi, r12
+                mov             rcx, 256
+                lea             rdi, [r13]
                 call            write_long 
                 mov             al, 0x0a
                 call            write_char
@@ -31,63 +33,111 @@ _start:
 ;    r12 -- address of multiplier #2 (long number)
 ;    rcx -- length of long numbers in qwords
 ; result:
-;    result is written to r12
+;    result is written to r13
 
 mul_long_long:
-                push            r11
+                push            r13
                 push            r12
                 push            rcx
                 push            rbx
 
-
 .loop:
-                mov             rbx, [r11]
+                call            copy_to_rdi
+                mov             rbx, [r12]
 
-                push            r11
-                call            mul_long_short     
-                pop             r11
-
+                call            mul_long_short
                 call            add_long_long
 
                 lea             r12, [r12 + 8]
-                lea             r11, [r11 + 8]  
-
+                lea             r13, [r13 + 8]
                 dec             rcx
                 jnz             .loop
 
                 pop             rbx
                 pop             rcx
                 pop             r12
-                pop             r11
-                ret	
+                pop             r13
+                ret 
 
-
-; adds long number to result
-;    r12 -- address of summand #1 (long number)
-;    r13 -- address of summand #2 (long number)
-;    rcx -- length of long number #2 in qwords
-; result:
-;    sum is written to r12
-
-add_long_long:
-                push            r12
-                push            r13
+; copies long number from r11 to rdi
+copy_to_rdi:
+                push            r11
+                push            rdi
                 push            rcx
 
-                clc
-.loop:
-                mov             rax, [r13]
-                lea             r13, [r13 + 8]
-                adc             [r12], rax
-                lea             r12, [r12 + 8]
+                mov             rcx, 128
+.loop:          
+                mov             rax, [r11]
+                mov             [rdi], rax
+                lea             rdi, [rdi + 8]
+                lea             r11, [r11 + 8]
                 dec             rcx
                 jnz             .loop
 
                 pop             rcx
-                pop             r13
-                pop             r12
+                pop             rdi
+                pop             r11
                 ret
 
+; multiplies long number by a short
+;    rdi -- address of multiplier #1 (long number)
+;    rbx -- multiplier #2 (64-bit unsigned)
+;    rcx -- length of long number in qwords
+; result:
+;    product is written to rdi
+mul_long_short:
+                push            rax
+                push            rdi
+                push            rcx
+
+                mov             rcx, 128
+                xor             rsi, rsi
+.loop:
+                mov             rax, [rdi]
+                mul             rbx
+                add             rax, rsi
+                adc             rdx, 0
+                mov             [rdi], rax
+                add             rdi, 8
+                mov             rsi, rdx
+                dec             rcx
+                jnz             .loop
+
+                mov             [rdi], rsi
+
+                pop             rcx
+                pop             rdi
+                pop             rax
+                ret          
+
+; adds two long number
+;    r13 -- address of summand #1 (long number)
+;    rdi -- address of summand #2 (long number)
+;    rcx -- length of long numbers in qwords
+; result:
+;    sum is written to r13
+add_long_long:
+
+                push            r13
+                push            rdi
+                push            rcx
+  
+                mov             rcx, 129
+.loop:
+                mov             rax, [rdi]
+                lea             rdi, [rdi + 8]
+                adc             [r13], rax
+                lea             r13, [r13 + 8]
+                dec             rcx
+                jnz             .loop
+
+                pop             rcx
+                pop             rdi
+                pop             r13
+                ret
+
+
+;------------------------------------------------------------------
 
 ; adds 64-bit number to long number
 ;    rdi -- address of summand #1 (long number)
@@ -113,37 +163,6 @@ add_long_short:
                 pop             rdx
                 pop             rcx
                 pop             rdi
-                ret
-
-; multiplies long number by a short
-;    rdi -- address of multiplier #1 (long number)
-;    rbx -- multiplier #2 (64-bit unsigned)
-;    rcx -- length of long number in qwords
-; result:
-;    result is written to r13
-mul_long_short:
-                push            rax
-                push            rdi
-                push            rcx
-                push            r13
-
-                xor             r11, r11
-.loop:
-                mov             rax, [rdi]
-                mul             rbx
-                add             rax, r11
-                adc             rdx, 0
-                mov             [r13], rax
-                add             r13, 8
-                add             rdi, 8
-                mov             r11, rdx
-                dec             rcx
-                jnz             .loop
-
-                pop             r13
-                pop             rcx
-                pop             rdi
-                pop             rax
                 ret
 
 ; divides long number by a short
@@ -229,7 +248,6 @@ read_long:
 
                 sub             rax, '0'
                 mov             rbx, 10
-                mov             r13, rdi
                 call            mul_long_short
                 call            add_long_short
                 jmp             .loop
@@ -258,7 +276,6 @@ read_long:
 ; write long number to stdout
 ;    rdi -- argument (long number)
 ;    rcx -- length of long number in qwords
-;    rax -- length of answer in qwords
 write_long:
                 push            rax
                 push            rcx
@@ -352,7 +369,7 @@ print_string:
                 ret
 
 
-section         .rodata
-
-invalid_char_msg:      db              "Invalid character: "
+                section         .rodata
+invalid_char_msg:
+                db              "Invalid character: "
 invalid_char_msg_size: equ             $ - invalid_char_msg
