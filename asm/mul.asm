@@ -41,6 +41,7 @@ mul_long_long:
                 push            rcx
                 push            rbx
 
+                xor             r14, r14
 .loop:
                 call            copy_to_rdi
                 mov             rbx, [r12]
@@ -50,6 +51,7 @@ mul_long_long:
 
                 lea             r12, [r12 + 8]
                 lea             r13, [r13 + 8]
+                inc             r14
                 dec             rcx
                 jnz             .loop
 
@@ -65,7 +67,8 @@ copy_to_rdi:
                 push            rdi
                 push            rcx
 
-                mov             rcx, 128
+                add             rcx, r14
+
 .loop:          
                 mov             rax, [r11]
                 mov             [rdi], rax
@@ -85,12 +88,13 @@ copy_to_rdi:
 ;    rcx -- length of long number in qwords
 ; result:
 ;    product is written to rdi
+;    length of result is rcx + 1
 mul_long_short:
                 push            rax
                 push            rdi
                 push            rcx
 
-                mov             rcx, 128
+                add             rcx, r14
                 xor             rsi, rsi
 .loop:
                 mov             rax, [rdi]
@@ -113,7 +117,7 @@ mul_long_short:
 ; adds two long number
 ;    r13 -- address of summand #1 (long number)
 ;    rdi -- address of summand #2 (long number)
-;    rcx -- length of long numbers in qwords
+;    rcx + 1 -- length of long numbers in qwords
 ; result:
 ;    sum is written to r13
 add_long_long:
@@ -121,8 +125,9 @@ add_long_long:
                 push            r13
                 push            rdi
                 push            rcx
-  
-                mov             rcx, 129
+
+                add             rcx, r14
+                add             rcx, 1  
 .loop:
                 mov             rax, [rdi]
                 lea             rdi, [rdi + 8]
