@@ -10,6 +10,12 @@ _start:
                 mov             rdi, rsp
                 call            read_long
                 lea             rsi, [rsp + 128 * 8]
+
+                mov             rax, rdi
+                mov             rdi, rsi
+                mov             rsi, rax
+                xor             rax, rax    
+
                 call            sub_long_long
 
                 call            write_long
@@ -20,16 +26,12 @@ _start:
                 jmp             exit
 
 ; subs two long number
-;    rdi -- address of #1 (long number)
-;    rsi -- address of #2 (long number)
+;    rdi -- address of #1 - уменьшаемое (long number)
+;    rsi -- address of №2 - вычитаемое (long number)
 ;    rcx -- length of long numbers in qwords
 ; result:
 ;    sub is written to rdi
-sub_long_long:                
-                mov             rax, rdi
-                mov             rdi, rsi
-                mov             rsi, rax
-                xor             rax, rax                  
+sub_long_long:                              
                 push            rdi
                 push            rsi
                 push            rcx       

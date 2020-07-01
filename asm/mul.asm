@@ -1,4 +1,4 @@
- 
+
                 global          _start
 
 ; main
@@ -32,6 +32,7 @@ _start:
 ;    r11 -- address of multiplier #1 (long number)
 ;    r12 -- address of multiplier #2 (long number)
 ;    rcx -- length of long numbers in qwords
+;    r14 -- register for stabilise rcx
 ; result:
 ;    result is written to r13
 
