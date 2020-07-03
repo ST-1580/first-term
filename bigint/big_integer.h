@@ -15,7 +15,8 @@ private:
     friend bool smaller(big_integer const &a, big_integer const &b, size_t index);
     friend void difference(big_integer &a, big_integer const &b, size_t index);
     friend big_integer bin_operator(big_integer a, big_integer const& b, int mode);
-
+    size_t size() const;
+    uint32_t operator[](const size_t id) const;
 public:
     big_integer();
     big_integer(big_integer const& other);
@@ -71,9 +72,8 @@ public:
 
     friend std::string to_string(big_integer const& a);
     friend std::ostream& operator<<(std::ostream& s, big_integer const& a);
-
 private:
-    std::vector <uint32_t> value;
+    std::vector<uint32_t> value;
     bool sign;
 };
 

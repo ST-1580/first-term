@@ -2,16 +2,18 @@
 
 typedef unsigned long long int uint128_t __attribute__ ((mode (TI)));
 
+const uint64_t u32 = static_cast<uint64_t>(UINT32_MAX) + 1;
+const big_integer b32 = big_integer(UINT32_MAX) + 1;
+
 big_integer::big_integer() : value(1), sign(false) {
 
 }
 
-big_integer::big_integer(big_integer const& other) {
-    sign = other.sign;
+big_integer::big_integer(big_integer const& other) : value(other.size()), sign(other.sign) {
     value = other.value;
 }
 
-big_integer::big_integer(int a) : value(1), sign(a < 0){
+big_integer::big_integer(int a) : value(1), sign(a < 0) {
     if (a == std::numeric_limits<int>::min()) {
         value[0] = 2147483648;
     } else {
@@ -33,15 +35,13 @@ big_integer::big_integer(std::string const& str) : value(1), sign(false) {
     }
     while (curr_pos < str.size()) {
         *this *= 10;
-        *this += (uint32_t) (str[curr_pos] - 48);
+        *this += static_cast<uint32_t>(str[curr_pos] - 48);
         curr_pos++;
     }
     sign = (str[0] == '-');
 }
 
-big_integer::~big_integer() {
-    value.clear();
-}
+big_integer::~big_integer() = default;
 
 big_integer& big_integer::operator=(big_integer const& other) {
     big_integer to_swap (other);
@@ -105,7 +105,7 @@ big_integer big_integer::operator+() const {
 }
 
 big_integer big_integer::operator-() const {
-    if (value.size() == 1 && value[0] == 0) {
+    if (size() == 1 && value[0] == 0) {
         return *this;
     }
     big_integer to_swap (*this);
@@ -141,33 +141,29 @@ big_integer big_integer::operator--(int) {
 
 big_integer operator+(big_integer a, big_integer const& b) {
     if (a.sign != b.sign) {
-        if (a.sign) {
-            return b - (-a);
-        }
-        return a - (-b);
+        return (a.sign) ? b - (-a) : a - (-b);
     }
-    size_t max_sz = std::max(a.value.size(), b.value.size());
+    size_t max_sz = std::max(a.size(), b.size());
     uint64_t sum;
     uint64_t shift = 0;
     big_integer res;
-    uint64_t u32 = (uint64_t) UINT32_MAX + 1;
     for (size_t i = 0; i <= max_sz; i++) {
         res.value.push_back(0);
     }
     for (size_t i = 0; i < max_sz; i++) {
         sum = shift;
-        if (i < a.value.size()) {
-            sum += a.value[i];
+        if (i < a.size()) {
+            sum += a[i];
         }
-        if (i < b.value.size()) {
-            sum += b.value[i];
+        if (i < b.size()) {
+            sum += b[i];
         }
         if (sum > UINT32_MAX) {
             shift = 1;
         } else {
             shift = 0;
         }
-        res.value[i] = (uint32_t) (sum % u32);
+        res.value[i] = static_cast<uint32_t>(sum % u32);
     }
     res.value[max_sz] = shift;
     res.sign = a.sign;
@@ -177,10 +173,7 @@ big_integer operator+(big_integer a, big_integer const& b) {
 
 big_integer operator-(big_integer a, big_integer const& b) {
     if (a.sign != b.sign) {
-        if (a.sign) {
-            return -(-a + b);
-        }
-        return a + (-b);
+        return (a.sign) ? -(-a + b) : a + (-b);
     }
     if (a.sign) {
         return (-b) - (-a);
@@ -190,23 +183,23 @@ big_integer operator-(big_integer a, big_integer const& b) {
     }
     uint32_t shift = 0;
     big_integer res;
-    for (size_t i = 0; i < a.value.size(); i++) {
+    for (size_t i = 0; i < a.size(); i++) {
         res.value.push_back(0);
     }
-    for (size_t i = 0; i < a.value.size(); i++) {
-        if (i >= b.value.size()) {
-            if (a.value[i] >= shift) {
-                res.value[i] = a.value[i] - shift;
+    for (size_t i = 0; i < a.size(); i++) {
+        if (i >= b.size()) {
+            if (a[i] >= shift) {
+                res.value[i] = a[i] - shift;
                 shift = 0;
             } else {
                 res.value[i] = UINT32_MAX;
                 shift = 1;
             }
-        } else if (a.value[i] >= b.value[i] + shift) {
-            res.value[i] = a.value[i] - shift - b.value[i];
+        } else if (a[i] >= b[i] + shift) {
+            res.value[i] = a[i] - shift - b[i];
             shift = 0;
         } else {
-            res.value[i] = UINT32_MAX - (b.value[i] - a.value[i]) - shift + 1;
+            res.value[i] = UINT32_MAX - (b[i] - a[i]) - shift + 1;
             shift = 1;
         }
     }
@@ -219,18 +212,15 @@ big_integer operator*(big_integer a, big_integer const& b) {
         return 0;
     }
     big_integer res;
-    for (size_t i = 0; i < a.value.size() + b.value.size(); i++) {
-        res.value.push_back(0);
-    }
-    uint64_t u32 = (uint64_t) UINT32_MAX + 1;
-    for (size_t i = 0; i < a.value.size(); i++) {
+    res.value.assign(a.size() + b.size(), 0);
+    for (size_t i = 0; i < a.size(); i++) {
         uint64_t shift = 0;
-        for (size_t j = 0; j < b.value.size(); j++) {
-            uint64_t curr_mul = (uint64_t) a.value[i] * b.value[j] + res.value[i + j] + shift;
-            res.value[i + j] = (uint32_t) curr_mul % u32;
+        for (size_t j = 0; j < b.size(); j++) {
+            uint64_t curr_mul = static_cast<uint64_t>(a[i]) * b[j] + res[i + j] + shift;
+            res.value[i + j] = static_cast<uint32_t>(curr_mul % u32);
             shift = curr_mul / u32;
         }
-        res.value[i + b.value.size()] = shift;
+        res.value[i + b.size()] = shift;
     }
     res.sign = a.sign ^ b.sign;
     res.delete_zero();
@@ -251,25 +241,24 @@ big_integer operator/(big_integer a, big_integer const& b) {
     if (first < second) {
         return 0;
     }
-    uint64_t u32 = (uint64_t) UINT32_MAX + 1;
-    if (b.value.size() == 1) {
+    if (b.size() == 1) {
         uint64_t rest = 0;
         uint64_t curr;
-        for (size_t i = 1; i <= a.value.size(); i++) {
-            curr = rest * u32 + a.value[a.value.size() - i];
-            res.value.push_back((uint32_t) (curr / b.value[0]));
-            rest = curr % b.value[0];
+        for (size_t i = 1; i <= a.size(); i++) {
+            curr = rest * u32 + a[a.size() - i];
+            res.value.push_back(static_cast<uint32_t>(curr / b[0]));
+            rest = curr % b[0];
         }
         std::reverse(res.value.begin(), res.value.end());
     } else {
         // Algo from article: Multiple-Length Division Revisited: A Tour of the Minefield
         big_integer dq;
         first.value.push_back(0);
-        size_t m = second.value.size();
-        size_t n = first.value.size();
+        size_t m = second.size();
+        size_t n = first.size();
         res.value.resize(n - m);
         uint32_t qt = 0;
-        size_t j = res.value.size() - 1;
+        size_t j = res.size() - 1;
         for (size_t i = m + 1; i <= n; i++) {
             qt = trial(first, second);
             dq = second * qt;
@@ -279,7 +268,7 @@ big_integer operator/(big_integer a, big_integer const& b) {
             }
             res.value[j] = qt;
             difference(first, dq, m + 1);
-            if (first.value.size() != 0) {
+            if (first.size() != 0) {
                 first.value.pop_back();
             }
             j--;
@@ -307,34 +296,32 @@ big_integer operator^(big_integer a, big_integer const& b) {
 }
 
 big_integer operator<<(big_integer a, int b) {
-    uint32_t shift = 1 << b % 32;
-    big_integer u32 = big_integer(UINT32_MAX) + 1;
+    uint32_t shift = 1 << (b % 32);
     for (int i = 0; i < b / 32; i++) {
-        a *= u32;
+        a *= b32;
     }
     a *= shift;
     return a;
 }
 
 big_integer operator>>(big_integer a, int b) {
-    big_integer u32 = big_integer(UINT32_MAX) + 1;
     for (int i = 0; i < b / 32; i++) {
-        a /= u32;
+        a /= b32;
     }
+    uint32_t shift = 1 << (b % 32);
     if (a.sign) {
-        a -= (uint32_t) (1 << b % 32) - 1;
+        a -= shift - 1;
     }
-    uint32_t shift = 1 << b % 32;
     a /= shift;
     return a;
 }
 
 bool operator==(big_integer const& a, big_integer const& b) {
-    if (a.value.size() != b.value.size()) {
+    if (a.size() != b.size()) {
         return false;
     }
-    for (size_t i = 0; i < a.value.size(); i++) {
-        if (a.value[i] != b.value[i]) {
+    for (size_t i = 0; i < a.size(); i++) {
+        if (a[i] != b[i]) {
             return false;
         }
     }
@@ -352,12 +339,12 @@ bool operator<(big_integer const& a, big_integer const& b) {
     if (a.sign) {
         return -a > -b;
     }
-    if (a.value.size() != b.value.size()) {
-        return a.value.size() < b.value.size();
+    if (a.size() != b.size()) {
+        return a.size() < b.size();
     }
-    for (size_t i = 1; i <= a.value.size(); i++) {
-        if (a.value[a.value.size() - i] != b.value[a.value.size() - i]) {
-            return a.value[a.value.size() - i] < b.value[a.value.size() - i];
+    for (size_t i = 1; i <= a.size(); i++) {
+        if (a[a.size() - i] != b[a.size() - i]) {
+            return a[a.size() - i] < b[a.size() - i];
         }
     }
     return false;
@@ -383,7 +370,7 @@ std::string to_string(big_integer const& a) {
     big_integer curr = a;
     while (curr != 0) {
         big_integer mod10 = curr % 10;
-        str += char (mod10.value[0] + 48);
+        str += char (mod10[0] + 48);
         curr /= 10;
     }
     str += a.sign ? "-" : "";
@@ -396,18 +383,18 @@ std::ostream& operator<<(std::ostream& s, big_integer const& a) {
 }
 
 void big_integer::delete_zero() {
-    while (value.size() > 1 && value.back() == 0) {
+    while (size() > 1 && value.back() == 0) {
         value.pop_back();
     }
 }
 
 void big_integer::inverse(size_t sz) {
-    for (size_t i = value.size(); i < sz; i++) {
+    for (size_t i = size(); i < sz; i++) {
         value.push_back(0);
     }
     if (sign) {
         sign = false;
-        for (size_t i = 0; i < value.size(); i++) {
+        for (size_t i = 0; i < size(); i++) {
             value[i] = ~value[i];
         }
         *this += 1;
@@ -415,23 +402,23 @@ void big_integer::inverse(size_t sz) {
 }
 
 uint32_t trial(big_integer &a, big_integer const &b) {
-    uint128_t x = (((uint128_t) a.value[a.value.size() - 1] << 64) +
-                   ((uint128_t) a.value[a.value.size() - 2] << 32) +
-                   ((uint128_t) a.value[a.value.size() - 3]));
-    uint128_t y = (((uint128_t) b.value[b.value.size() - 1] << 32) +
-                   (uint128_t) b.value[b.value.size() - 2]);
-    return std::min((uint32_t) (x / y), UINT32_MAX);
+    uint128_t x = ((static_cast<uint128_t>(a[a.size() - 1]) << 64) +
+                   (static_cast<uint128_t>(a[a.size() - 2]) << 32) +
+                    static_cast<uint128_t>(a[a.size() - 3]));
+    uint128_t y = ((static_cast<uint128_t>(b[b.size() - 1]) << 32) +
+                    static_cast<uint128_t>(b[b.size() - 2]));
+    return std::min(static_cast<uint32_t>(x / y), UINT32_MAX);
 }
 
 bool smaller(big_integer const &a, big_integer const &b, size_t id) {
-    for (size_t i = 1; i <= a.value.size(); i++) {
-        if (id - i < b.value.size()) {
-            if (a.value[a.value.size() - i] != b.value[id - i]) {
-                return a.value[a.value.size() - i] > b.value[id - i];
+    for (size_t i = 1; i <= a.size(); i++) {
+        if (id - i < b.size()) {
+            if (a[a.size() - i] != b[id - i]) {
+                return a[a.size() - i] > b[id - i];
             }
         } else {
-            if (a.value[a.value.size() - i] != 0) {
-                return a.value[a.value.size() - i] > 0;
+            if (a[a.size() - i] != 0) {
+                return a[a.size() - i] > 0;
             }
         }
     }
@@ -439,24 +426,24 @@ bool smaller(big_integer const &a, big_integer const &b, size_t id) {
 }
 
 void difference(big_integer &a, big_integer const &b, size_t id) {
-    size_t start = a.value.size() - id;
+    size_t start = a.size() - id;
     int64_t borrow = 0;
-    uint64_t u32 = (uint64_t) UINT32_MAX + 1;
     for (size_t i = 0; i < id; i++) {
-        uint32_t val = i < b.value.size() ? b.value[i] : 0;
-        uint64_t diff = (uint64_t) a.value[start + i] - val + u32 - borrow;
+        uint32_t val = i < b.size() ? b[i] : 0;
+        uint64_t diff = (uint64_t) a[start + i] - val + u32 - borrow;
         a.value[start + i] = diff % u32;
         borrow = 1 - diff / u32;
     }
 }
 
 uint32_t bin_op(uint32_t a, uint32_t b, int mode) {
-    if (mode == 1) {
-        return a & b;
-    } else if (mode == 2) {
-        return a | b;
-    } else {
-        return a ^ b;
+    switch (mode) {
+        case 1:
+            return a & b;
+        case 2:
+            return a | b;
+        default:
+            return a ^ b;
     }
 }
 
@@ -465,12 +452,12 @@ big_integer bin_operator(big_integer a, big_integer const& b, int mode) {
     big_integer first_num = a;
     big_integer second_num = b;
     big_integer res;
-    size_t max_sz = std::max(a.value.size(), b.value.size());
+    size_t max_sz = std::max(a.size(), b.size());
     first_num.inverse(max_sz);
     second_num.inverse(max_sz);
     res.value.resize(max_sz);
     for (size_t i = 0; i < max_sz; i++) {
-        res.value[i] = bin_op(first_num.value[i], second_num.value[i], mode);
+        res.value[i] = bin_op(first_num[i], second_num[i], mode);
     }
     bool is_inv = bin_op(a.sign, b.sign, mode);
     if (is_inv) {
@@ -480,3 +467,12 @@ big_integer bin_operator(big_integer a, big_integer const& b, int mode) {
     }
     return res;
 }
+
+size_t big_integer::size() const {
+    return value.size();
+}
+
+uint32_t big_integer::operator[](size_t id) const {
+    return value[id];
+}
+
