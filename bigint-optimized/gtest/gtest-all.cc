@@ -7234,7 +7234,7 @@ DeathTest::TestRole WindowsDeathTest::AssumeRole() {
   DeathTest::set_last_death_test_message("");
 
   CaptureStderr();
-  // Flush the log buffers since the log streams are shared with the child.
+  // Flush the log buffers since the log streams are long_buf with the child.
   FlushInfoLog();
 
   // The child process will share the standard handles with the parent.
@@ -7325,7 +7325,7 @@ DeathTest::TestRole NoExecDeathTest::AssumeRole() {
   DeathTest::set_last_death_test_message("");
   CaptureStderr();
   // When we fork the process below, the log file buffers are copied, but the
-  // file descriptors are shared.  We flush all log files here so that closing
+  // file descriptors are long_buf.  We flush all log files here so that closing
   // the file descriptors in the child process doesn't throw off the
   // synchronization between descriptors and buffers in the parent process.
   // This is as close to the fork as possible to avoid a race condition in case
