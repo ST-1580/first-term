@@ -43,7 +43,7 @@ big_integer::big_integer(std::string const& str) : value(1), sign(false) {
 big_integer::~big_integer() = default;
 
 big_integer& big_integer::operator=(big_integer const& other) {
-    big_integer to_swap (other);
+    big_integer to_swap(other);
     std::swap(sign, to_swap.sign);
     std::swap(value, to_swap.value);
     return *this;
@@ -146,9 +146,7 @@ big_integer operator+(big_integer a, big_integer const& b) {
     uint64_t sum;
     uint64_t shift = 0;
     big_integer res;
-    for (size_t i = 0; i <= max_sz; i++) {
-        res.value.push_back(0);
-    }
+    res.value.resize(max_sz + 1);
     for (size_t i = 0; i < max_sz; i++) {
         sum = shift;
         if (i < a.size()) {
@@ -298,11 +296,7 @@ big_integer operator<<(big_integer a, int b) {
     uint32_t shift = 1 << (b % 32);
     a *= shift;
     if (b >= 32) {
-        std::reverse(a.value.begin(), a.value.end());
-        for (int i = 0; i < b / 32; i++) {
-            a.value.push_back(0);
-        }
-        std::reverse(a.value.begin(), a.value.end());
+        a.value.insert(a.value.begin(), b / 32, 0);
     }
     return a;
 }
@@ -314,11 +308,7 @@ big_integer operator>>(big_integer a, int b) {
     }
     a /= shift;
     if (b >= 32) {
-        std::reverse(a.value.begin(), a.value.end());
-        for (int i = 0; i < b / 32; i++) {
-            a.value.pop_back();
-        }
-        std::reverse(a.value.begin(), a.value.end());
+        a.value.erase(a.value.begin(), a.value.begin() + b / 32);
         if (a < 0) {
             a -= 1;
         }
@@ -347,7 +337,7 @@ bool operator<(big_integer const& a, big_integer const& b) {
         return a.sign;
     }
     if (a.sign) {
-        return -a > -b;
+        return -b < -a;
     }
     if (a.size() != b.size()) {
         return a.size() < b.size();
@@ -361,21 +351,7 @@ bool operator<(big_integer const& a, big_integer const& b) {
 }
 
 bool operator>(big_integer const& a, big_integer const& b) {
-    if (a.sign != b.sign) {
-        return !a.sign;
-    }
-    if (a.sign) {
-        return -a < -b;
-    }
-    if (a.size() != b.size()) {
-        return a.size() > b.size();
-    }
-    for (size_t i = 1; i <= a.size(); i++) {
-        if (a[a.size() - i] != b[a.size() - i]) {
-            return a[a.size() - i] > b[a.size() - i];
-        }
-    }
-    return false;
+    return -a < -b;
 }
 
 bool operator<=(big_integer const& a, big_integer const& b) {
@@ -413,9 +389,7 @@ void big_integer::delete_zero() {
 }
 
 void big_integer::inverse(size_t sz) {
-    for (size_t i = size(); i < sz; i++) {
-        value.push_back(0);
-    }
+    value.insert(value.begin() + size(), sz - size(), 0);
     if (sign) {
         sign = false;
         for (size_t i = 0; i < size(); i++) {
