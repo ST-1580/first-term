@@ -2,8 +2,7 @@
 
 typedef unsigned long long int uint128_t __attribute__ ((mode (TI)));
 
-const uint64_t u32 = static_cast<uint64_t>(UINT32_MAX) + 1;
-const big_integer b32 = big_integer(UINT32_MAX) + 1;
+const uint64_t TWO_POW_32 = static_cast<uint64_t>(UINT32_MAX) + 1;
 
 big_integer::big_integer() : value(1), sign(false) {
 
@@ -108,7 +107,7 @@ big_integer big_integer::operator-() const {
     if (size() == 1 && value[0] == 0) {
         return *this;
     }
-    big_integer to_swap (*this);
+    big_integer to_swap(*this);
     to_swap.sign = !sign;
     return to_swap;
 }
@@ -163,7 +162,7 @@ big_integer operator+(big_integer a, big_integer const& b) {
         } else {
             shift = 0;
         }
-        res.value[i] = static_cast<uint32_t>(sum % u32);
+        res.value[i] = static_cast<uint32_t>(sum % TWO_POW_32);
     }
     res.value[max_sz] = shift;
     res.sign = a.sign;
@@ -183,9 +182,7 @@ big_integer operator-(big_integer a, big_integer const& b) {
     }
     uint32_t shift = 0;
     big_integer res;
-    for (size_t i = 0; i < a.size(); i++) {
-        res.value.push_back(0);
-    }
+    res.value.resize(a.size());
     for (size_t i = 0; i < a.size(); i++) {
         if (i >= b.size()) {
             if (a[i] >= shift) {
@@ -217,8 +214,8 @@ big_integer operator*(big_integer a, big_integer const& b) {
         uint64_t shift = 0;
         for (size_t j = 0; j < b.size(); j++) {
             uint64_t curr_mul = static_cast<uint64_t>(a[i]) * b[j] + res[i + j] + shift;
-            res.value[i + j] = static_cast<uint32_t>(curr_mul % u32);
-            shift = curr_mul / u32;
+            res.value[i + j] = static_cast<uint32_t>(curr_mul % TWO_POW_32);
+            shift = curr_mul / TWO_POW_32;
         }
         res.value[i + b.size()] = shift;
     }
@@ -245,8 +242,10 @@ big_integer operator/(big_integer a, big_integer const& b) {
         uint64_t rest = 0;
         uint64_t curr;
         for (size_t i = 1; i <= a.size(); i++) {
-            curr = rest * u32 + a[a.size() - i];
-            res.value.push_back(static_cast<uint32_t>(curr / b[0]));
+            curr = rest * TWO_POW_32 + a[a.size() - i];
+            uint64_t b_curr_val = b[0];
+            uint64_t to_push = (curr / b_curr_val) % TWO_POW_32;
+            res.value.push_back(static_cast<uint32_t>(to_push));
             rest = curr % b[0];
         }
         std::reverse(res.value.begin(), res.value.end());
@@ -297,22 +296,33 @@ big_integer operator^(big_integer a, big_integer const& b) {
 
 big_integer operator<<(big_integer a, int b) {
     uint32_t shift = 1 << (b % 32);
-    for (int i = 0; i < b / 32; i++) {
-        a *= b32;
-    }
     a *= shift;
+    if (b >= 32) {
+        std::reverse(a.value.begin(), a.value.end());
+        for (int i = 0; i < b / 32; i++) {
+            a.value.push_back(0);
+        }
+        std::reverse(a.value.begin(), a.value.end());
+    }
     return a;
 }
 
 big_integer operator>>(big_integer a, int b) {
-    for (int i = 0; i < b / 32; i++) {
-        a /= b32;
-    }
     uint32_t shift = 1 << (b % 32);
     if (a.sign) {
         a -= shift - 1;
     }
     a /= shift;
+    if (b >= 32) {
+        std::reverse(a.value.begin(), a.value.end());
+        for (int i = 0; i < b / 32; i++) {
+            a.value.pop_back();
+        }
+        std::reverse(a.value.begin(), a.value.end());
+        if (a < 0) {
+            a -= 1;
+        }
+    }
     return a;
 }
 
@@ -351,7 +361,21 @@ bool operator<(big_integer const& a, big_integer const& b) {
 }
 
 bool operator>(big_integer const& a, big_integer const& b) {
-    return !(a < b) && a != b;
+    if (a.sign != b.sign) {
+        return !a.sign;
+    }
+    if (a.sign) {
+        return -a < -b;
+    }
+    if (a.size() != b.size()) {
+        return a.size() > b.size();
+    }
+    for (size_t i = 1; i <= a.size(); i++) {
+        if (a[a.size() - i] != b[a.size() - i]) {
+            return a[a.size() - i] > b[a.size() - i];
+        }
+    }
+    return false;
 }
 
 bool operator<=(big_integer const& a, big_integer const& b) {
@@ -430,9 +454,9 @@ void difference(big_integer &a, big_integer const &b, size_t id) {
     int64_t borrow = 0;
     for (size_t i = 0; i < id; i++) {
         uint32_t val = i < b.size() ? b[i] : 0;
-        uint64_t diff = (uint64_t) a[start + i] - val + u32 - borrow;
-        a.value[start + i] = diff % u32;
-        borrow = 1 - diff / u32;
+        uint64_t diff = static_cast<uint64_t>(a[start + i]) - val + TWO_POW_32 - borrow;
+        a.value[start + i] = diff % TWO_POW_32;
+        borrow = 1 - diff / TWO_POW_32;
     }
 }
 
