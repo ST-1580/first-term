@@ -176,11 +176,11 @@
 //                              is building in C++11/C++98 mode.
 //   GTEST_LINKED_AS_SHARED_LIBRARY
 //                            - Define to 1 when compiling tests that use
-//                              Google Test as a long_buf library (known as
+//                              Google Test as a shared library (known as
 //                              DLL on Windows).
 //   GTEST_CREATE_SHARED_LIBRARY
 //                            - Define to 1 when compiling Google Test itself
-//                              as a long_buf library.
+//                              as a shared library.
 
 // This header defines the following utilities:
 //
@@ -9022,7 +9022,7 @@ TEST_P(DerivedTest, DoesBlah) {
 //     - it's safe to copy *from* a linked_ptr and read its underlying
 //       raw pointer (e.g. via get()) concurrently, and
 //     - it's safe to write to two linked_ptrs that point to the same
-//       long_buf object concurrently.
+//       shared object concurrently.
 // TODO(wan@google.com): rename this to safe_linked_ptr to avoid
 // confusion with normal linked_ptr.
 
@@ -10152,7 +10152,7 @@ class ParamGeneratorInterface {
 // Wraps ParamGeneratorInterface<T> and provides general generator syntax
 // compatible with the STL Container concept.
 // This class implements copy initialization semantics and the contained
-// ParamGeneratorInterface<T> instance is long_buf among all copies
+// ParamGeneratorInterface<T> instance is shared among all copies
 // of the original object. This is possible because that instance is immutable.
 template<typename T>
 class ParamGenerator {
@@ -17769,7 +17769,7 @@ class GTEST_API_ Test {
   // The d'tor is virtual as we intend to inherit from Test.
   virtual ~Test();
 
-  // Sets up the stuff long_buf by all tests in this test case.
+  // Sets up the stuff shared by all tests in this test case.
   //
   // Google Test will call Foo::SetUpTestCase() before running the first
   // test in test case Foo.  Hence a sub-class can define its own
@@ -17777,7 +17777,7 @@ class GTEST_API_ Test {
   // class.
   static void SetUpTestCase() {}
 
-  // Tears down the stuff long_buf by all tests in this test case.
+  // Tears down the stuff shared by all tests in this test case.
   //
   // Google Test will call Foo::TearDownTestCase() after running the last
   // test in test case Foo.  Hence a sub-class can define its own
