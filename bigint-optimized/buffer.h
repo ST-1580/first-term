@@ -18,11 +18,7 @@ struct buffer {
     }
 
     ~buffer() {
-        if (is_small) {
-            for (size_t i = 1; i <= MAX_SIZE; i++) {
-                ~small_data[size - i];
-            }
-        } else {
+        if (!is_small) {
             long_data->delete_data();
         }
     }
@@ -32,14 +28,14 @@ struct buffer {
             return small_data[id];
         }
         unshare();
-        return long_data->get_elem_link(id);
+        return (*long_data)[id];
     }
 
     uint32_t const& operator[](size_t id) const {
         if (is_small) {
             return small_data[id];
         }
-        return long_data->get_elem(id);
+        return (*long_data)[id];
     }
 
     uint32_t const& back() const {
@@ -60,7 +56,8 @@ struct buffer {
         if (a.is_small) {
             std::copy(a.small_data, a.small_data + a.size, small_data);
         } else {
-            long_data = new long_buf(*a.long_data);
+            long_data = a.long_data;
+            long_data->inc_ref();
         }
         return *this;
     }
@@ -69,12 +66,8 @@ struct buffer {
         if (is_small) {
             if (size == MAX_SIZE) {
                 is_small = false;
-                std::vector<uint32_t> new_num;
-                for (size_t i = 0; i < MAX_SIZE; i++) {
-                    new_num.push_back(small_data[i]);
-                }
-                new_num.push_back(a);
-                long_data = new long_buf(new_num);
+                long_data = new long_buf(small_data, MAX_SIZE);
+                long_data->push_back(a);
             } else {
                 small_data[size] = a;
             }
@@ -94,9 +87,17 @@ struct buffer {
     }
 
     void resize(size_t sz) {
-        while (size < sz) {
-            push_back(0);
+        if (sz > MAX_SIZE) {
+            is_small = false;
+            if (size <= MAX_SIZE) {
+                std::vector<uint32_t> curr(small_data, small_data + size);
+                curr.resize(sz);
+                long_data = new long_buf(curr);
+            } else {
+                long_data->resize(sz);
+            }
         }
+        size = sz;
     }
 
     void reverse() {
@@ -109,11 +110,11 @@ struct buffer {
     }
 
     void unshare() {
-        long_data = long_data->make_data();
+        long_data = long_data->make_unique_data();
     }
 
 private:
-    static const size_t MAX_SIZE = 2;
+    static constexpr size_t MAX_SIZE = 2;
     size_t size;
     bool is_small;
     union {

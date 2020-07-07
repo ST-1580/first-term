@@ -6,17 +6,15 @@
 #include <algorithm>
 
 struct long_buf {
-    long_buf(std::vector<uint32_t> const a) : ref_counter(1), v(a) {
+    long_buf(std::vector<uint32_t> a) : ref_counter(1), v(a) {}
 
-    }
+    long_buf(long_buf &a) : ref_counter(1), v(a.v) {}
 
-    long_buf(long_buf const& a) : ref_counter(1), v(a.v) {
-
-    }
+    long_buf(uint32_t a[], size_t sz) : ref_counter(1), v(a, a + sz) {}
 
     ~long_buf() = default;
 
-    long_buf* make_data() {
+    long_buf* make_unique_data() {
         if (ref_counter == 1) {
             return this;
         }
@@ -36,15 +34,11 @@ struct long_buf {
         ref_counter++;
     }
 
-    uint32_t& get_elem_link(size_t id) {
+    uint32_t& operator[](size_t id) {
         return v[id];
     }
 
-    uint32_t const& get_elem(size_t id) {
-        return v[id];
-    }
-
-    uint32_t const& back() {
+    uint32_t const& back() const {
         return v.back();
     }
 
@@ -58,6 +52,10 @@ struct long_buf {
 
     void reverse() {
         std::reverse(v.begin(), v.end());
+    }
+
+    void resize(size_t sz) {
+        v.resize(sz);
     }
 
 private:
